@@ -11,29 +11,39 @@ const io = new Server(httpserver, {
     origin: "*",
   },
 });
-// const rooms: Array<string> = [];
-
-type LinePayload = {
-  line: number;
-  line_data: any;
+enum OperationType {
+  Delete = 0,
+  Insert = 1,
+}
+type Operation = {
+  optype: OperationType;
+  position: number;
+  text?: string;
 };
-
+type SyncTextReceive = {
+  op: Operation;
+  rid: number;
+};
+type SyncTextEmit = {
+  op: Operation;
+  rid: number;
+  socketId: string;
+};
+// emit: roomNotify, syncText
+// receive: join, syncText
 io.on("connection", (socket) => {
   console.log("a user connected");
 
   //create room
   socket.on("join", (roomName: string, userName: string = "User ") => {
-    // if (!rooms.includes(roomName)) rooms.push(roomName);
     socket.join(roomName);
     io.to(roomName).emit("roomNotify", userName + " has joined the room");
   });
 
-  //notification
-
   // content changes
-  socket.on("contentChanges", (roomName: string, data) => {
-    console.log(data);
-    socket.broadcast.to(roomName).emit("contentChanges", data);
+  socket.on("syncText", (roomName: string, data: SyncTextReceive) => {
+    (data as SyncTextEmit).socketId = socket.id;
+    socket.in(roomName).emit("syncText", data as SyncTextEmit);
   });
 });
 
