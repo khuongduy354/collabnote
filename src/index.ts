@@ -1,6 +1,10 @@
 import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
+import { SyncTextEmit, SyncTextReceive } from "./types/wsIO";
+import { RoomDB } from "./types/roomPayload";
+import { addRoom, getRoom } from "./helper/roomDB";
+import { applyOT } from "./helper/OTfunctions";
 
 const PORT = 8000;
 
@@ -11,39 +15,38 @@ const io = new Server(httpserver, {
     origin: "*",
   },
 });
-enum OperationType {
-  Delete = 0,
-  Insert = 1,
-}
-type Operation = {
-  optype: OperationType;
-  position: number;
-  text?: string;
-};
-type SyncTextReceive = {
-  op: Operation;
-  rid: number;
-};
-type SyncTextEmit = {
-  op: Operation;
-  rid: number;
-  socketId: string;
-};
-// emit: roomNotify, syncText
+const roomDB: RoomDB = {};
+
+// emit: roomNotify, syncTextResponse
 // receive: join, syncText
 io.on("connection", (socket) => {
-  console.log("a user connected");
-
   //create room
   socket.on("join", (roomName: string, userName: string = "User ") => {
     socket.join(roomName);
+    addRoom(roomDB, roomName);
     io.to(roomName).emit("roomNotify", userName + " has joined the room");
   });
 
   // content changes
-  socket.on("syncText", (roomName: string, data: SyncTextReceive) => {
-    (data as SyncTextEmit).socketId = socket.id;
-    socket.in(roomName).emit("syncText", data as SyncTextEmit);
+  socket.on("syncText", (roomName: string, _payload: SyncTextReceive) => {
+    let payload = _payload as SyncTextEmit;
+    payload.socketId = socket.id;
+    let room = getRoom(roomDB, roomName);
+    if (!room) return socket.in(roomName).emit("roomNotify", "Room not found");
+
+    if (payload.rid <= room.synced_ops.length - 1) {
+      for (let idx = 0; idx < room.synced_ops.length; idx++) {
+        //revision id starts from 1;
+        const serverRID = idx + 1;
+        if (serverRID >= payload.rid) {
+          payload.op = applyOT(payload.op, room.synced_ops[idx]);
+        }
+      }
+    }
+    room.synced_ops.push(payload.op);
+    payload.rid = room.synced_ops.length;
+    console.log(room.synced_ops);
+    io.to(roomName).emit("syncTextResponse", payload);
   });
 });
 
