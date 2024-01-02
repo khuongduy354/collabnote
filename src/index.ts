@@ -4,7 +4,7 @@ import { Server } from "socket.io";
 import { SyncTextEmit, SyncTextReceive } from "./types/wsIO";
 import { RoomDB } from "./types/roomPayload";
 import { addRoom, getRoom } from "./helper/roomDB";
-import { applyOT } from "./helper/OTfunctions";
+import { applyOT, opsToText } from "./helper/OTfunctions";
 
 const PORT = 8000;
 
@@ -45,7 +45,6 @@ io.on("connection", (socket) => {
     }
     room.synced_ops.push(payload.op);
     payload.rid = room.synced_ops.length;
-    console.log(room.synced_ops);
     io.to(roomName).emit("syncTextResponse", payload);
   });
 });

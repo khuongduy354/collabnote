@@ -38,3 +38,22 @@ export const applyOT = (remoteOp: Operation, localOp: Operation) => {
   // incase of no match, do nothing
   return remoteOp;
 };
+
+export const opsToText = (opsList: Operation[]) => {
+  let result = [];
+  for (let idx in opsList) {
+    let op = opsList[idx];
+    switch (op.optype) {
+      case OperationType.Insert:
+        result[op.position] = op.text;
+        break;
+      case OperationType.Delete:
+        result[op.position] = "";
+        break;
+      default:
+        throw new Error("Invalid optypes");
+    }
+  }
+  result = result.map((val) => (val === undefined ? "" : val));
+  return result.join("");
+};
