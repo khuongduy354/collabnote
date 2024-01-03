@@ -15,16 +15,19 @@ const io = new Server(httpserver, {
     origin: "*",
   },
 });
-const roomDB: RoomDB = {};
+let roomDB: RoomDB = {};
 
 // emit: roomNotify, syncTextResponse
 // receive: join, syncText
 io.on("connection", (socket) => {
+  socket.on("disconnect", () => {
+    roomDB = {};
+  });
   //create room
   socket.on("join", (roomName: string, userName: string = "User ") => {
     socket.join(roomName);
     addRoom(roomDB, roomName);
-    io.to(roomName).emit("roomNotify", userName + " has joined the room");
+    // io.to(roomName).emit("roomNotify", userName + " has joined the room");
   });
 
   // content changes
